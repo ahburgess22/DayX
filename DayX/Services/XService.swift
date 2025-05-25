@@ -1,275 +1,284 @@
 import Foundation
 
 class XService: ObservableObject {
-    static let shared = XService()
     
-    private init() {}
+    // 🚨 TEMPORARY: Set to true to avoid rate limits while testing
+    private let skipLiveAPI = true
     
-    // MARK: - Main Public Method
-    func fetchDailyInsights() async throws -> DailyInsights {
-        print("🔄 Starting real API data fetch...")
+    func fetchDailyInsights(demoMode: Bool = false) async throws -> DailyInsights {
+        if demoMode || skipLiveAPI {
+            return await generateDemoInsights()
+        } else {
+            return try await fetchLiveInsights()
+        }
+    }
+    
+    // MARK: - Live API Integration
+    
+    private func fetchLiveInsights() async throws -> DailyInsights {
+        // Fetch real user profile to confirm connectivity
+        let userProfile = try await fetchUserProfile()
         
-        // Get access token from AuthManager
-        guard let accessToken = UserDefaults.standard.string(forKey: "x_access_token") else {
-            print("❌ No access token found")
-            throw XServiceError.noAccessToken
+        // Store user in AuthManager for UI display
+        await MainActor.run {
+            // You might need to store this user data in AuthManager if not already done
         }
         
-        // Fetch user data to test API connectivity
-        let userResponse = try await fetchUserData(accessToken: accessToken)
-        
-        // Return insights with API connectivity confirmation
-        let insights = DailyInsights(
-            tweetsLiked: 0,
-            activeHours: 0,
-            uniqueAccounts: 0,
-            peakHour: "API Connected ✅",
-            savedTweets: 0,
-            topAccount: TopAccount(
-                username: "@\(userResponse.data.username)",
-                profileImageUrl: userResponse.data.profile_image_url ?? "",
-                engagementCount: 1
-            )
+        // Create live insights with basic data (API constraints mean limited insights)
+        return DailyInsights(
+            tweetsLiked: 0, // Can't access without paid tier
+            activeHours: 0, // Can't calculate without tweet data
+            uniqueAccounts: 1, // At least the user themselves
+            peakActivityTime: "Connected ✅", // Success indicator
+            topEngagedAccount: TopAccount(username: userProfile.username, interactionCount: 0)
         )
-        
-        print("✅ Successfully connected to API for user: @\(userResponse.data.username)")
-        return insights
     }
     
-    private func fetchUserData(accessToken: String) async throws -> XUserResponse {
-        let endpoint = "https://api.twitter.com/2/users/me"
-        
-        // Build URL with query parameters
-        var components = URLComponents(string: endpoint)!
-        components.queryItems = [
-            URLQueryItem(name: "user.fields", value: "username,name,profile_image_url")
-        ]
-        
-        guard let url = components.url else {
-            throw XServiceError.invalidURL
+    private func fetchUserProfile() async throws -> XUser {
+        guard let accessToken = UserDefaults.standard.string(forKey: "access_token") else {
+            throw XAPIError.noAccessToken
         }
         
-        // Create request with authentication
+        let url = URL(string: "https://api.twitter.com/2/users/me")!
         var request = URLRequest(url: url)
-        request.httpMethod = "GET"
         request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         
-        print("🌐 Making API call to: \(url)")
+        print("🔄 Making API call to: \(url)")
+        print("🔑 Using access token: \(accessToken.prefix(20))...")
         
-        // Make the API call
         let (data, response) = try await URLSession.shared.data(for: request)
         
-        // Check response status
-        if let httpResponse = response as? HTTPURLResponse {
-            print("📡 API Response Status: \(httpResponse.statusCode)")
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw XAPIError.invalidResponse
+        }
+        
+        print("📡 API Response Status: \(httpResponse.statusCode)")
+        
+        switch httpResponse.statusCode {
+        case 200:
+            let apiResponse = try JSONDecoder().decode(XAPIUserResponse.self, from: data)
+            print("✅ API Response decoded successfully")
+            print("📊 User data: \(apiResponse.data)")
             
-            if httpResponse.statusCode != 200 {
-                print("❌ API Error - Status: \(httpResponse.statusCode)")
-                if let errorString = String(data: data, encoding: .utf8) {
-                    print("Error Response: \(errorString)")
-                }
-                throw XServiceError.apiError(httpResponse.statusCode)
-            }
-        }
-        
-        // Parse the response
-        do {
-            let decoder = JSONDecoder()
-            let userResponse = try decoder.decode(XUserResponse.self, from: data)
-            return userResponse
-        } catch {
-            print("❌ JSON Parsing Error: \(error)")
-            throw XServiceError.parsingError
-        }
-    }
-    
-    // MARK: - API Calls
-    private func fetchLikedTweets(accessToken: String) async throws -> DailyInsights {
-        let endpoint = "https://api.twitter.com/2/users/me"
-        
-        // Build URL with query parameters
-        var components = URLComponents(string: endpoint)!
-        components.queryItems = [
-//            URLQueryItem(name: "tweet.fields", value: "created_at,author_id,public_metrics"),
-//            URLQueryItem(name: "expansions", value: "author_id"),
-            URLQueryItem(name: "user.fields", value: "username,name,profile_image_url")
-//            URLQueryItem(name: "max_results", value: "100") // Get up to 100 recent likes
-        ]
-        
-        guard let url = components.url else {
-            throw XServiceError.invalidURL
-        }
-        
-        // Create request with authentication
-        var request = URLRequest(url: url)
-        request.httpMethod = "GET"
-        request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        
-        print("🌐 Making API call to: \(url)")
-        
-        // Make the API call
-        let (data, response) = try await URLSession.shared.data(for: request)
-        
-        // Check response status
-        if let httpResponse = response as? HTTPURLResponse {
-            print("📡 API Response Status: \(httpResponse.statusCode)")
-            
-            if httpResponse.statusCode != 200 {
-                print("❌ API Error - Status: \(httpResponse.statusCode)")
-                if let errorString = String(data: data, encoding: .utf8) {
-                    print("Error Response: \(errorString)")
-                }
-                throw XServiceError.apiError(httpResponse.statusCode)
-            }
-        }
-        
-        // Parse the response
-        do {
-            let decoder = JSONDecoder()
-            let userResponse = try decoder.decode(XUserResponse.self, from: data)
-            print("✅ Successfully got user data for: @\(userResponse.data.username)")
-
-            // For now, return mock insights since we're just testing connectivity
-            return DailyInsights(
-                tweetsLiked: 0,
-                activeHours: 0,
-                uniqueAccounts: 0,
-                peakHour: "API Connected ✅",
-                savedTweets: 0,
-                topAccount: TopAccount(
-                    username: "@\(userResponse.data.username)",
-                    profileImageUrl: userResponse.data.profile_image_url ?? "",
-                    engagementCount: 1
-                )
+            let user = XUser(
+                id: apiResponse.data.id,
+                username: apiResponse.data.username,
+                displayName: apiResponse.data.name,
+                profileImageURL: apiResponse.data.profileImageUrl
             )
-        } catch {
-            print("❌ JSON Parsing Error: \(error)")
-            throw XServiceError.parsingError
-        }
-    }
-    
-    // MARK: - Data Processing
-    private func filterTweetsFromToday(_ tweets: [XTweet]) -> [XTweet] {
-        let calendar = Calendar.current
-        let today = Date()
-        
-        return tweets.filter { tweet in
-            guard let createdAtString = tweet.created_at,
-                  let tweetDate = parseTwitterDate(createdAtString) else {
-                return false
-            }
+            print("✅ Successfully created user: @\(user.username) (\(user.displayName))")
+            return user
             
-            return calendar.isDate(tweetDate, inSameDayAs: today)
+        case 400:
+            throw XAPIError.badRequest
+        case 401:
+            throw XAPIError.unauthorized
+        case 403:
+            throw XAPIError.forbidden
+        case 429:
+            throw XAPIError.rateLimitExceeded
+        default:
+            throw XAPIError.unknownError(httpResponse.statusCode)
         }
     }
     
-    private func parseTwitterDate(_ dateString: String) -> Date? {
-        let formatter = ISO8601DateFormatter()
-        return formatter.date(from: dateString)
-    }
+    // MARK: - Demo Mode Analytics
     
-    private func processLikedTweetsToInsights(_ tweets: [XTweet]) -> DailyInsights {
-        // If no tweets, return empty insights
-        guard !tweets.isEmpty else {
-            return DailyInsights(
-                tweetsLiked: 0,
-                activeHours: 0,
-                uniqueAccounts: 0,
-                peakHour: "No activity today",
-                savedTweets: 0,
-                topAccount: nil
-            )
-        }
+    private func generateDemoInsights() async -> DailyInsights {
+        // Simulate API call delay for realistic experience
+        try? await Task.sleep(nanoseconds: 1_500_000_000) // 1.5 seconds
         
-        // Basic metrics
-        let tweetsLiked = tweets.count
-        let uniqueAccounts = Set(tweets.compactMap { $0.author_id }).count
+        // Generate realistic demo data
+        let currentHour = Calendar.current.component(.hour, from: Date())
+        let dayOfWeek = Calendar.current.component(.weekday, from: Date())
         
-        // Calculate active hours (simplified - hours where likes occurred)
-        let activeHours = calculateActiveHours(from: tweets)
+        // Dynamic tweets liked based on time of day and day of week
+        let baseTweetsLiked = generateRealisticTweetCount(hour: currentHour, weekday: dayOfWeek)
         
-        // Find peak activity time
-        let peakHour = findPeakActivityTime(from: tweets)
+        // Dynamic active hours (more on weekends, varies by time)
+        let activeHours = generateRealisticActiveHours(weekday: dayOfWeek, currentHour: currentHour)
         
-        // Find top account (most liked from)
-        let topAccount = findTopAccount(from: tweets)
+        // Unique accounts engaged with
+        let uniqueAccounts = Int.random(in: 12...18)
+        
+        // Peak activity time based on realistic patterns
+        let peakTime = generatePeakActivityTime()
+        
+        // Top engaged account with realistic tech industry usernames
+        let topAccount = generateTopEngagedAccount()
         
         return DailyInsights(
-            tweetsLiked: tweetsLiked,
+            tweetsLiked: baseTweetsLiked,
             activeHours: activeHours,
             uniqueAccounts: uniqueAccounts,
-            peakHour: peakHour,
-            savedTweets: 0, // Will implement later
-            topAccount: topAccount
+            peakActivityTime: peakTime,
+            topEngagedAccount: topAccount
         )
     }
     
-    private func calculateActiveHours(from tweets: [XTweet]) -> Int {
-        let hours = Set(tweets.compactMap { tweet -> Int? in
-            guard let createdAtString = tweet.created_at,
-                  let date = parseTwitterDate(createdAtString) else { return nil }
-            return Calendar.current.component(.hour, from: date)
-        })
-        return hours.count
-    }
-    
-    private func findPeakActivityTime(from tweets: [XTweet]) -> String {
-        let hourCounts = Dictionary(grouping: tweets) { tweet -> Int in
-            guard let createdAtString = tweet.created_at,
-                  let date = parseTwitterDate(createdAtString) else { return 0 }
-            return Calendar.current.component(.hour, from: date)
-        }.mapValues { $0.count }
+    private func generateRealisticTweetCount(hour: Int, weekday: Int) -> Int {
+        var base = 25
         
-        guard let peakHour = hourCounts.max(by: { $0.value < $1.value })?.key else {
-            return "Unknown"
+        // More activity during typical working hours
+        if hour >= 9 && hour <= 17 {
+            base += Int.random(in: 5...15)
         }
         
-        // Convert to readable time
-        let formatter = DateFormatter()
-        formatter.dateFormat = "h a"
-        let date = Calendar.current.date(bySettingHour: peakHour, minute: 0, second: 0, of: Date()) ?? Date()
-        return formatter.string(from: date)
-    }
-    
-    private func findTopAccount(from tweets: [XTweet]) -> TopAccount? {
-        let authorCounts = Dictionary(grouping: tweets) { $0.author_id ?? "unknown" }
-            .mapValues { $0.count }
-        
-        guard let topAuthorId = authorCounts.max(by: { $0.value < $1.value })?.key,
-              topAuthorId != "unknown" else {
-            return nil
+        // Weekend boost
+        if weekday == 1 || weekday == 7 { // Sunday or Saturday
+            base += Int.random(in: 8...12)
         }
         
-        let engagementCount = authorCounts[topAuthorId] ?? 0
+        // Evening social media time
+        if hour >= 19 && hour <= 22 {
+            base += Int.random(in: 10...20)
+        }
         
-        // For now, return basic info - we'll enhance this with user data from the includes
-        return TopAccount(
-            username: "@user_\(topAuthorId)",
-            profileImageUrl: "",
-            engagementCount: engagementCount
+        // Add some randomness
+        return base + Int.random(in: -5...15)
+    }
+    
+    private func generateRealisticActiveHours(weekday: Int, currentHour: Int) -> Int {
+        if weekday == 1 || weekday == 7 { // Weekend
+            return Int.random(in: 3...6)
+        } else if currentHour < 12 { // Morning/early day
+            return Int.random(in: 1...3)
+        } else if currentHour < 18 { // Afternoon
+            return Int.random(in: 2...4)
+        } else { // Evening
+            return Int.random(in: 3...5)
+        }
+    }
+    
+    private func generatePeakActivityTime() -> String {
+        let peakTimes = [
+            "9:30 AM", "11:15 AM", "1:45 PM", "2:30 PM",
+            "4:15 PM", "7:20 PM", "8:45 PM", "10:30 PM"
+        ]
+        return peakTimes.randomElement() ?? "2:30 PM"
+    }
+    
+    private func generateTopEngagedAccount() -> TopAccount {
+        let techAccounts = [
+            ("paulg", Int.random(in: 4...8)),
+            ("gdb", Int.random(in: 3...7)),
+            ("sama", Int.random(in: 5...9)),
+            ("karpathy", Int.random(in: 6...10)),
+            ("levelsio", Int.random(in: 3...8)),
+            ("naval", Int.random(in: 4...9)),
+            ("dhh", Int.random(in: 5...9)),
+            ("spolsky", Int.random(in: 3...7)),
+            ("patio11", Int.random(in: 4...8))
+        ]
+        
+        let selectedAccount = techAccounts.randomElement() ?? ("swiftlang", 5)
+        return TopAccount(username: selectedAccount.0, interactionCount: selectedAccount.1)
+    }
+}
+
+// MARK: - Demo Analytics Extensions
+
+extension XService {
+    
+    func fetchDemoContentBreakdown() -> [ContentCategory] {
+        return [
+            ContentCategory(name: "Tech & Development", percentage: Int.random(in: 40...50), color: "blue"),
+            ContentCategory(name: "Industry News", percentage: Int.random(in: 25...35), color: "green"),
+            ContentCategory(name: "Memes & Humor", percentage: Int.random(in: 10...20), color: "orange"),
+            ContentCategory(name: "Sports & Entertainment", percentage: Int.random(in: 5...15), color: "purple")
+        ]
+    }
+    
+    func fetchDemoEngagementTrends() -> EngagementTrends {
+        let changePercentage = Int.random(in: -15...35)
+        let isPositive = changePercentage > 0
+        
+        return EngagementTrends(
+            percentageChange: changePercentage,
+            isPositive: isPositive,
+            peakTimeStart: Int.random(in: 13...16), // 1-4 PM
+            peakTimeEnd: Int.random(in: 15...18),   // 3-6 PM
+            comparisonPeriod: "yesterday"
         )
+    }
+    
+    func fetchDemoWeeklyComparison() -> [DayActivityData] {
+        let days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+        return days.map { day in
+            DayActivityData(
+                day: day,
+                tweetsLiked: Int.random(in: 15...45),
+                timeSpent: Int.random(in: 2...6)
+            )
+        }
+    }
+}
+
+// MARK: - Supporting Models
+
+struct ContentCategory {
+    let name: String
+    let percentage: Int
+    let color: String
+}
+
+struct EngagementTrends {
+    let percentageChange: Int
+    let isPositive: Bool
+    let peakTimeStart: Int
+    let peakTimeEnd: Int
+    let comparisonPeriod: String
+}
+
+struct DayActivityData {
+    let day: String
+    let tweetsLiked: Int
+    let timeSpent: Int
+}
+
+struct XAPIUserResponse: Codable {
+    let data: XAPIUserData
+}
+
+struct XAPIUserData: Codable {
+    let id: String
+    let name: String
+    let username: String
+    let profileImageUrl: String?
+    
+    enum CodingKeys: String, CodingKey {
+        case id, name, username
+        case profileImageUrl = "profile_image_url"
     }
 }
 
 // MARK: - Error Handling
-enum XServiceError: Error, LocalizedError {
+
+enum XAPIError: Error, LocalizedError {
     case noAccessToken
-    case invalidURL
-    case apiError(Int)
-    case parsingError
+    case invalidResponse
+    case badRequest
+    case unauthorized
+    case forbidden
+    case rateLimitExceeded
+    case unknownError(Int)
     
     var errorDescription: String? {
         switch self {
         case .noAccessToken:
-            return "No access token available. Please log in again."
-        case .invalidURL:
-            return "Invalid API URL configuration."
-        case .apiError(let statusCode):
-            return "API request failed with status code: \(statusCode)"
-        case .parsingError:
-            return "Failed to parse API response."
+            return "No access token found. Please sign in again."
+        case .invalidResponse:
+            return "Invalid response from X API."
+        case .badRequest:
+            return "Bad request. Please check your input."
+        case .unauthorized:
+            return "Unauthorized. Your token may have expired."
+        case .forbidden:
+            return "Access forbidden. You may not have permission for this resource."
+        case .rateLimitExceeded:
+            return "Rate limit exceeded. Please wait before trying again."
+        case .unknownError(let code):
+            return "Unknown error occurred (Status: \(code)). Please try again."
         }
     }
 }
