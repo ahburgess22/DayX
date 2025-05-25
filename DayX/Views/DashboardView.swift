@@ -2,7 +2,7 @@ import SwiftUI
 
 struct DashboardView: View {
     @EnvironmentObject var authManager: AuthManager
-    @StateObject private var xService = XService()
+    @StateObject private var xService = XService.shared
     @State private var dailyInsights: DailyInsights?
     @State private var isLoading = true
     
@@ -39,13 +39,16 @@ struct DashboardView: View {
     private func loadDailyInsights() {
         guard let token = authManager.accessToken else { return }
         
-        xService.fetchDailyInsights(accessToken: token) { result in
-            DispatchQueue.main.async {
-                isLoading = false
-                switch result {
-                case .success(let insights):
+        Task {
+            do {
+                let insights = try await xService.fetchDailyInsights()
+                await MainActor.run {
+                    self.isLoading = false
                     self.dailyInsights = insights
-                case .failure(let error):
+                }
+            } catch {
+                await MainActor.run {
+                    self.isLoading = false
                     print("Failed to load insights: \(error)")
                 }
             }
@@ -124,7 +127,7 @@ struct DailyInsightsView: View {
                         .clipShape(Circle())
                         
                         VStack(alignment: .leading) {
-                            Text("@\(topAccount.username)")
+                            Text("\(topAccount.username)")
                                 .font(.subheadline)
                                 .fontWeight(.medium)
                             
