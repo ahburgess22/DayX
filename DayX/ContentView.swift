@@ -4,19 +4,20 @@ struct ContentView: View {
     @EnvironmentObject var authManager: AuthManager
     
     var body: some View {
-        NavigationView {
-            if authManager.isAuthenticated {
+        Group {
+            if authManager.isLoggedIn {
                 DashboardView()
             } else {
                 LoginView()
             }
         }
+        .onAppear {
+            authManager.checkStoredAuth()
+        }
     }
 }
 
-struct ContentView_Previews: PreviewProvider {
-    static var previews: some View {
-        ContentView()
-            .environmentObject(AuthManager())
-    }
+#Preview {
+    ContentView()
+        .environmentObject(AuthManager())
 }

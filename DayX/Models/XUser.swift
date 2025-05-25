@@ -1,8 +1,13 @@
 import Foundation
 
-struct XUser {
+struct XUser: Codable, Identifiable {
     let id: String
     let username: String
     let displayName: String
-    let profileImageUrl: String
+    let profileImageURL: String?
+    
+    // Computed property for display
+    var displayUsername: String {
+        return "@\(username)"
+    }
 }
