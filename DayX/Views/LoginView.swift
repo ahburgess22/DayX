@@ -2,77 +2,91 @@ import SwiftUI
 
 struct LoginView: View {
     @EnvironmentObject var authManager: AuthManager
-    @State private var isLoading = false
     
     var body: some View {
-        VStack(spacing: 30) {
-            // App Logo/Title
-            VStack(spacing: 16) {
+        VStack(spacing: 40) {
+            Spacer()
+            
+            // App Icon and Title
+            VStack(spacing: 20) {
                 Image(systemName: "chart.line.uptrend.xyaxis")
-                    .font(.system(size: 60))
+                    .font(.system(size: 80))
                     .foregroundColor(.blue)
                 
-                Text("Day X")
+                Text("DayX")
                     .font(.largeTitle)
                     .fontWeight(.bold)
                 
-                Text("Your daily X insights")
-                    .font(.title3)
+                Text("Daily Insights for X")
+                    .font(.title2)
                     .foregroundColor(.secondary)
             }
             
             Spacer()
             
-            // Login Description
+            // Description
             VStack(spacing: 16) {
-                Text("Connect your X account to get daily insights about your engagement patterns")
-                    .multilineTextAlignment(.center)
+                Text("Get personalized daily insights about your X engagement patterns")
+                    .font(.body)
                     .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal)
+                
+                Text("• Daily activity summaries\n• Engagement analytics\n• Content insights")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
+            }
+            
+            Spacer()
+            
+            // Error Message
+            if let errorMessage = authManager.errorMessage {
+                Text(errorMessage)
+                    .font(.caption)
+                    .foregroundColor(.red)
+                    .multilineTextAlignment(.center)
                     .padding(.horizontal)
             }
             
-            Spacer()
-            
             // Login Button
             Button(action: {
-                loginWithX()
+                authManager.login()
             }) {
                 HStack {
-                    if isLoading {
+                    if authManager.isLoading {
                         ProgressView()
-                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
                             .scaleEffect(0.8)
+                            .foregroundColor(.white)
                     } else {
-                        Image(systemName: "bird.fill")
+                        Image(systemName: "person.crop.circle.badge.checkmark")
+                            .font(.title3)
                     }
                     
-                    Text(isLoading ? "Connecting..." : "Connect with X")
+                    Text(authManager.isLoading ? "Connecting..." : "Connect with X")
+                        .font(.headline)
                         .fontWeight(.semibold)
                 }
                 .foregroundColor(.white)
                 .frame(maxWidth: .infinity)
-                .padding()
-                .background(Color.blue)
+                .frame(height: 50)
+                .background(Color.black)
                 .cornerRadius(12)
+                .padding(.horizontal, 40)
             }
-            .disabled(isLoading)
-            .padding(.horizontal)
+            .disabled(authManager.isLoading)
             
-            Spacer()
+            Text("Your data stays private and secure")
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .padding(.bottom, 40)
         }
         .padding()
+        .background(Color(.systemBackground))
     }
-    
-    private func loginWithX() {
-        isLoading = true
-        authManager.authenticateWithX { success in
-            DispatchQueue.main.async {
-                isLoading = false
-                if !success {
-                    // Handle error - could show alert
-                    print("Authentication failed")
-                }
-            }
-        }
-    }
+}
+
+#Preview {
+    LoginView()
+        .environmentObject(AuthManager())
 }
