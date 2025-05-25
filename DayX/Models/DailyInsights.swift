@@ -5,7 +5,6 @@
 //  Created by Austin Burgess on 5/24/25.
 //
 
-
 import Foundation
 
 struct DailyInsights {
