@@ -84,7 +84,7 @@ class XService: ObservableObject {
     
     // MARK: - Demo Mode Analytics
     
-    private func generateDemoInsights() async -> DailyInsights {
+    public func generateDemoInsights() async -> DailyInsights {
         // Simulate API call delay for realistic experience
         try? await Task.sleep(nanoseconds: 1_500_000_000) // 1.5 seconds
         
@@ -116,7 +116,7 @@ class XService: ObservableObject {
         )
     }
     
-    private func generateRealisticTweetCount(hour: Int, weekday: Int) -> Int {
+    public func generateRealisticTweetCount(hour: Int, weekday: Int) -> Int {
         var base = 25
         
         // More activity during typical working hours
@@ -138,7 +138,7 @@ class XService: ObservableObject {
         return base + Int.random(in: -5...15)
     }
     
-    private func generateRealisticActiveHours(weekday: Int, currentHour: Int) -> Int {
+    public func generateRealisticActiveHours(weekday: Int, currentHour: Int) -> Int {
         if weekday == 1 || weekday == 7 { // Weekend
             return Int.random(in: 3...6)
         } else if currentHour < 12 { // Morning/early day
@@ -150,7 +150,7 @@ class XService: ObservableObject {
         }
     }
     
-    private func generatePeakActivityTime() -> String {
+    public func generatePeakActivityTime() -> String {
         let peakTimes = [
             "9:30 AM", "11:15 AM", "1:45 PM", "2:30 PM",
             "4:15 PM", "7:20 PM", "8:45 PM", "10:30 PM"
@@ -158,7 +158,7 @@ class XService: ObservableObject {
         return peakTimes.randomElement() ?? "2:30 PM"
     }
     
-    private func generateTopEngagedAccount() -> TopAccount {
+    public func generateTopEngagedAccount() -> TopAccount {
         let techAccounts = [
             ("paulg", Int.random(in: 4...8)),
             ("gdb", Int.random(in: 3...7)),

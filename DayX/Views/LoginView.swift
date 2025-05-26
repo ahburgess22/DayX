@@ -2,87 +2,181 @@ import SwiftUI
 
 struct LoginView: View {
     @EnvironmentObject var authManager: AuthManager
+    @State private var isLoading = false
+    @State private var errorMessage: String?
+    @State private var showingDemo = false
     
     var body: some View {
-        VStack(spacing: 40) {
-            Spacer()
-            
-            // App Icon and Title
-            VStack(spacing: 20) {
-                Image(systemName: "chart.line.uptrend.xyaxis")
-                    .font(.system(size: 80))
-                    .foregroundColor(.blue)
+        NavigationView {
+            ZStack {
+                // Background gradient
+                LinearGradient(
+                    gradient: Gradient(colors: [
+                        Color.blue.opacity(0.8),
+                        Color.purple.opacity(0.8)
+                    ]),
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+                .ignoresSafeArea()
                 
-                Text("DayX")
-                    .font(.largeTitle)
-                    .fontWeight(.bold)
-                
-                Text("Daily Insights for X")
-                    .font(.title2)
-                    .foregroundColor(.secondary)
-            }
-            
-            Spacer()
-            
-            // Description
-            VStack(spacing: 16) {
-                Text("Get personalized daily insights about your X engagement patterns")
-                    .font(.body)
-                    .foregroundColor(.secondary)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal)
-                
-                Text("• Daily activity summaries\n• Engagement analytics\n• Content insights")
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-                    .multilineTextAlignment(.center)
-            }
-            
-            Spacer()
-            
-            // Error Message
-            if let errorMessage = authManager.errorMessage {
-                Text(errorMessage)
-                    .font(.caption)
-                    .foregroundColor(.red)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal)
-            }
-            
-            // Login Button
-            Button(action: {
-                authManager.login()
-            }) {
-                HStack {
-                    if authManager.isLoading {
-                        ProgressView()
-                            .scaleEffect(0.8)
+                VStack(spacing: 40) {
+                    Spacer()
+                    
+                    // App branding
+                    VStack(spacing: 16) {
+                        Image(systemName: "chart.line.uptrend.xyaxis.circle.fill")
+                            .font(.system(size: 80))
                             .foregroundColor(.white)
-                    } else {
-                        Image(systemName: "person.crop.circle.badge.checkmark")
-                            .font(.title3)
+                        
+                        Text("DayX")
+                            .font(.largeTitle)
+                            .fontWeight(.bold)
+                            .foregroundColor(.white)
+                        
+                        Text("Your Daily X Wrapped")
+                            .font(.title2)
+                            .foregroundColor(.white.opacity(0.9))
+                            .multilineTextAlignment(.center)
                     }
                     
-                    Text(authManager.isLoading ? "Connecting..." : "Connect with X")
-                        .font(.headline)
-                        .fontWeight(.semibold)
+                    Spacer()
+                    
+                    // Action buttons section
+                    VStack(spacing: 20) {
+                        // Demo button (primary)
+                        Button(action: {
+                            showingDemo = true
+                        }) {
+                            HStack(spacing: 12) {
+                                Image(systemName: "waveform.and.magnifyingglass")
+                                    .font(.title2)
+                                Text("View Demo Analytics")
+                                    .font(.headline)
+                                    .fontWeight(.semibold)
+                            }
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 56)
+                            .background(
+                                LinearGradient(
+                                    gradient: Gradient(colors: [
+                                        Color.orange.opacity(0.8),
+                                        Color.red.opacity(0.8)
+                                    ]),
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                )
+                            )
+                            .cornerRadius(16)
+                            .shadow(color: .black.opacity(0.2), radius: 8, x: 0, y: 4)
+                        }
+                        
+                        // Live auth button (secondary)
+                        Button(action: {
+                            Task {
+                                await signInWithX()
+                            }
+                        }) {
+                            HStack(spacing: 12) {
+                                if isLoading {
+                                    ProgressView()
+                                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                        .scaleEffect(0.8)
+                                } else {
+                                    Image(systemName: "checkmark.shield.fill")
+                                        .font(.title2)
+                                }
+                                
+                                Text(isLoading ? "Connecting..." : "Connect with X")
+                                    .font(.headline)
+                                    .fontWeight(.semibold)
+                            }
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 56)
+                            .background(
+                                Color.white.opacity(0.2)
+                            )
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 16)
+                                    .stroke(Color.white.opacity(0.3), lineWidth: 1)
+                            )
+                            .cornerRadius(16)
+                        }
+                        .disabled(isLoading)
+                        
+                        // Feature comparison
+                        VStack(spacing: 8) {
+                            HStack {
+                                Text("Demo:")
+                                    .font(.caption)
+                                    .fontWeight(.semibold)
+                                    .foregroundColor(.white.opacity(0.9))
+                                Text("Full analytics showcase")
+                                    .font(.caption)
+                                    .foregroundColor(.white.opacity(0.7))
+                                Spacer()
+                            }
+                            
+                            HStack {
+                                Text("Live:")
+                                    .font(.caption)
+                                    .fontWeight(.semibold)
+                                    .foregroundColor(.white.opacity(0.9))
+                                Text("Real OAuth + Profile data")
+                                    .font(.caption)
+                                    .foregroundColor(.white.opacity(0.7))
+                                Spacer()
+                            }
+                        }
+                        .padding(.horizontal, 4)
+                    }
+                    .padding(.horizontal, 32)
+                    
+                    Spacer()
+                    
+                    // Footer
+                    VStack(spacing: 8) {
+                        Text("Built with SwiftUI + OAuth 2.0")
+                            .font(.caption)
+                            .foregroundColor(.white.opacity(0.7))
+                        
+                        Text("By Austin Burgess")
+                            .font(.caption)
+                            .fontWeight(.medium)
+                            .foregroundColor(.white.opacity(0.8))
+                    }
+                    .padding(.bottom, 20)
                 }
-                .foregroundColor(.white)
-                .frame(maxWidth: .infinity)
-                .frame(height: 50)
-                .background(Color.black)
-                .cornerRadius(12)
-                .padding(.horizontal, 40)
             }
-            .disabled(authManager.isLoading)
-            
-            Text("Your data stays private and secure")
-                .font(.caption)
-                .foregroundColor(.secondary)
-                .padding(.bottom, 40)
+            .navigationBarHidden(true)
         }
-        .padding()
-        .background(Color(.systemBackground))
+        .fullScreenCover(isPresented: $showingDemo) {
+            DemoDashboardView()
+        }
+        .alert("Authentication Error", isPresented: .constant(errorMessage != nil)) {
+            Button("OK") {
+                errorMessage = nil
+            }
+        } message: {
+            if let errorMessage = errorMessage {
+                Text(errorMessage)
+            }
+        }
+    }
+    
+    private func signInWithX() async {
+        isLoading = true
+        errorMessage = nil
+        
+        do {
+            try await authManager.login()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+        
+        isLoading = false
     }
 }
 
