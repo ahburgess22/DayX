@@ -1,9 +1,10 @@
 import Foundation
+import NaturalLanguage
 
 class XService: ObservableObject {
     
     // 🚨 TEMPORARY: Set to true to avoid rate limits while testing
-    private let skipLiveAPI = true
+    private let skipLiveAPI = false
     
     func fetchDailyInsights(demoMode: Bool = false) async throws -> DailyInsights {
         if demoMode || skipLiveAPI {
@@ -35,7 +36,7 @@ class XService: ObservableObject {
     }
     
     private func fetchUserProfile() async throws -> XUser {
-        guard let accessToken = UserDefaults.standard.string(forKey: "access_token") else {
+        guard let accessToken = UserDefaults.standard.string(forKey: "x_access_token") else {
             throw XAPIError.noAccessToken
         }
         
@@ -82,7 +83,163 @@ class XService: ObservableObject {
         }
     }
     
-    // MARK: - Demo Mode Analytics
+    // MARK: - DayX Wrapped Analytics (NEW!)
+    
+    func generateDayXWrappedInsights() async -> DayXWrappedInsights {
+        // Simulate processing time for dramatic effect
+        try? await Task.sleep(nanoseconds: 1_500_000_000)
+        
+        let tweets = HardcodedTwitterData.tweets
+        let activity = HardcodedTwitterData.dailyActivity
+        
+        // Run sentiment analysis
+        let sentimentAnalyzer = TwitterSentimentAnalyzer()
+        let sentimentAnalysis = sentimentAnalyzer.analyzeTweets(tweets)
+        
+        // Run viral prediction analysis
+        let viralEngine = ViralPredictionEngine()
+        let viralAnalysis = viralEngine.analyzeViralPredictions(from: tweets)
+        
+        // Generate content breakdown based on real data
+        let contentBreakdown = generateContentBreakdownFromRealData(tweets: tweets)
+        
+        // Generate engagement patterns
+        let engagementPatterns = generateEngagementPatternsFromRealData(tweets: tweets, activity: activity)
+        
+        return DayXWrappedInsights(
+            totalTweetsLiked: activity.totalEngagements,
+            sentimentAnalysis: sentimentAnalysis,
+            viralAnalysis: viralAnalysis,
+            contentBreakdown: contentBreakdown,
+            engagementPatterns: engagementPatterns,
+            topAccounts: generateTopAccountsFromRealData(tweets: tweets),
+            peakActivityHour: activity.peakActivityHour,
+            dailyScore: calculateDailyScore(sentiment: sentimentAnalysis, viral: viralAnalysis)
+        )
+    }
+    
+    private func generateContentBreakdownFromRealData(tweets: [HardcodedTweet]) -> [ContentCategory] {
+        var sportsCount = 0
+        var comedyCount = 0
+        var newsCount = 0
+        var animeCount = 0
+        var generalCount = 0
+        
+        for tweet in tweets {
+            let text = tweet.text.lowercased()
+            let author = tweet.authorUsername.lowercased()
+            
+            if author.contains("nba") || author.contains("mlb") || author.contains("sports") ||
+               author.contains("basketball") || author.contains("baseball") ||
+               text.contains("game") || text.contains("playoff") || text.contains("mvp") {
+                sportsCount += 1
+            } else if text.contains("😂") || text.contains("😭") || text.contains("lmao") ||
+                     author.contains("druski") || author.contains("meme") {
+                comedyCount += 1
+            } else if author.contains("dbz") || author.contains("anime") || text.contains("pokemon") ||
+                     text.contains("vegeta") || text.contains("gohan") {
+                animeCount += 1
+            } else if text.contains("breaking") || text.contains("report") || author.contains("news") {
+                newsCount += 1
+            } else {
+                generalCount += 1
+            }
+        }
+        
+        let total = tweets.count
+        return [
+            ContentCategory(name: "Sports & Games", percentage: (sportsCount * 100) / total, color: "blue"),
+            ContentCategory(name: "Comedy & Memes", percentage: (comedyCount * 100) / total, color: "orange"),
+            ContentCategory(name: "Anime & Gaming", percentage: (animeCount * 100) / total, color: "purple"),
+            ContentCategory(name: "News & Updates", percentage: (newsCount * 100) / total, color: "green"),
+            ContentCategory(name: "General Content", percentage: (generalCount * 100) / total, color: "gray")
+        ].filter { $0.percentage > 0 }.sorted { $0.percentage > $1.percentage }
+    }
+    
+    private func generateEngagementPatternsFromRealData(tweets: [HardcodedTweet], activity: DayXActivity) -> EngagementPatterns {
+        // Analyze engagement timing from tweet timestamps
+        var hourlyEngagement: [Int: Int] = [:]
+        
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss'Z'"
+        
+        for tweet in tweets {
+            if let date = dateFormatter.date(from: tweet.createdAt) {
+                let hour = Calendar.current.component(.hour, from: date)
+                hourlyEngagement[hour, default: 0] += 1
+            }
+        }
+        
+        let peakHour = hourlyEngagement.max(by: { $0.value < $1.value })?.key ?? 19
+        let avgEngagementPerHour = hourlyEngagement.values.reduce(0, +) / max(hourlyEngagement.count, 1)
+        
+        return EngagementPatterns(
+            peakHour: peakHour,
+            averageEngagementPerHour: avgEngagementPerHour,
+            hourlyBreakdown: hourlyEngagement,
+            mostActiveTimeframe: "\(peakHour):00 - \(peakHour + 1):00",
+            engagementConsistency: calculateEngagementConsistency(hourlyEngagement)
+        )
+    }
+    
+    private func generateTopAccountsFromRealData(tweets: [HardcodedTweet]) -> [TopEngagedAccount] {
+        var accountEngagement: [String: Int] = [:]
+        
+        for tweet in tweets {
+            accountEngagement[tweet.authorUsername, default: 0] += 1
+        }
+        
+        return accountEngagement
+            .sorted { $0.value > $1.value }
+            .prefix(5)
+            .map { TopEngagedAccount(username: $0.key, interactionCount: $0.value, accountType: determineAccountType($0.key)) }
+    }
+    
+    private func determineAccountType(_ username: String) -> String {
+        let username = username.lowercased()
+        if username.contains("nba") || username.contains("mlb") || username.contains("sports") {
+            return "Sports"
+        } else if username.contains("report") || username.contains("news") {
+            return "News"
+        } else if username.contains("meme") || username == "druski" {
+            return "Comedy"
+        } else {
+            return "Content Creator"
+        }
+    }
+    
+    private func calculateEngagementConsistency(_ hourlyData: [Int: Int]) -> Double {
+        let values = Array(hourlyData.values)
+        guard values.count > 1 else { return 0.5 }
+        
+        let mean = Double(values.reduce(0, +)) / Double(values.count)
+        let variance = values.map { pow(Double($0) - mean, 2) }.reduce(0, +) / Double(values.count)
+        let standardDeviation = sqrt(variance)
+        
+        // Lower standard deviation = higher consistency
+        return max(0, 1.0 - (standardDeviation / mean))
+    }
+    
+    private func calculateDailyScore(sentiment: TweetSentimentAnalysis, viral: ViralPredictionAnalysis) -> Int {
+        var score = 50 // Base score
+        
+        // Add points for positive sentiment
+        if sentiment.dominantMood == .positive {
+            score += 20
+        } else if sentiment.dominantMood == .neutral {
+            score += 10
+        }
+        
+        // Add points for viral predictions
+        score += viral.tasteMakingScore / 10
+        
+        // Bonus for high engagement
+        score += min(viral.viralHitCount * 5, 30)
+        
+        return min(score, 100)
+    }
+    
+    // MARK: - Demo Mode Analytics (Existing)
     
     public func generateDemoInsights() async -> DailyInsights {
         // Simulate API call delay for realistic experience
@@ -214,7 +371,34 @@ extension XService {
     }
 }
 
-// MARK: - Supporting Models
+// MARK: - DayX Wrapped Models (NEW!)
+
+struct DayXWrappedInsights {
+    let totalTweetsLiked: Int
+    let sentimentAnalysis: TweetSentimentAnalysis
+    let viralAnalysis: ViralPredictionAnalysis
+    let contentBreakdown: [ContentCategory]
+    let engagementPatterns: EngagementPatterns
+    let topAccounts: [TopEngagedAccount]
+    let peakActivityHour: Int
+    let dailyScore: Int
+}
+
+struct EngagementPatterns {
+    let peakHour: Int
+    let averageEngagementPerHour: Int
+    let hourlyBreakdown: [Int: Int]
+    let mostActiveTimeframe: String
+    let engagementConsistency: Double
+}
+
+struct TopEngagedAccount {
+    let username: String
+    let interactionCount: Int
+    let accountType: String
+}
+
+// MARK: - Supporting Models (Existing)
 
 struct ContentCategory {
     let name: String

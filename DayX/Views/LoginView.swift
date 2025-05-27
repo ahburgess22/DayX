@@ -1,3 +1,10 @@
+//
+//  LoginView.swift
+//  DayX
+//
+//  Created by Austin Burgess on 5/24/25.
+//
+
 import SwiftUI
 
 struct LoginView: View {
@@ -5,15 +12,17 @@ struct LoginView: View {
     @State private var isLoading = false
     @State private var errorMessage: String?
     @State private var showingDemo = false
+    @State private var showingDayXWrapped = false
     
     var body: some View {
         NavigationView {
             ZStack {
-                // Background gradient
+                // Gradient background
                 LinearGradient(
                     gradient: Gradient(colors: [
                         Color.blue.opacity(0.8),
-                        Color.purple.opacity(0.8)
+                        Color.purple.opacity(0.6),
+                        Color.pink.opacity(0.4)
                     ]),
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
@@ -25,7 +34,7 @@ struct LoginView: View {
                     
                     // App branding
                     VStack(spacing: 16) {
-                        Image(systemName: "chart.line.uptrend.xyaxis.circle.fill")
+                        Image(systemName: "waveform.and.magnifyingglass")
                             .font(.system(size: 80))
                             .foregroundColor(.white)
                         
@@ -34,22 +43,34 @@ struct LoginView: View {
                             .fontWeight(.bold)
                             .foregroundColor(.white)
                         
-                        Text("Your Daily X Wrapped")
-                            .font(.title2)
-                            .foregroundColor(.white.opacity(0.9))
-                            .multilineTextAlignment(.center)
+                        Text("Daily X Wrapped")
+                            .font(.title3)
+                            .foregroundColor(.white.opacity(0.8))
                     }
                     
-                    Spacer()
+                    // Value proposition
+                    VStack(spacing: 12) {
+                        Text("Your Daily Twitter Psychology")
+                            .font(.title2)
+                            .fontWeight(.semibold)
+                            .foregroundColor(.white)
+                            .multilineTextAlignment(.center)
+                        
+                        Text("AI-powered insights into your daily Twitter engagement patterns, viral predictions, and mood analysis")
+                            .font(.body)
+                            .foregroundColor(.white.opacity(0.8))
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal)
+                    }
                     
-                    // Action buttons section
-                    VStack(spacing: 20) {
-                        // Demo button (primary)
+                    // Action buttons
+                    VStack(spacing: 16) {
+                        // Primary: Demo Analytics
                         Button(action: {
                             showingDemo = true
                         }) {
-                            HStack(spacing: 12) {
-                                Image(systemName: "waveform.and.magnifyingglass")
+                            HStack {
+                                Image(systemName: "chart.bar.fill")
                                     .font(.title2)
                                 Text("View Demo Analytics")
                                     .font(.headline)
@@ -60,35 +81,46 @@ struct LoginView: View {
                             .frame(height: 56)
                             .background(
                                 LinearGradient(
-                                    gradient: Gradient(colors: [
-                                        Color.orange.opacity(0.8),
-                                        Color.red.opacity(0.8)
-                                    ]),
+                                    gradient: Gradient(colors: [Color.orange, Color.red]),
                                     startPoint: .leading,
                                     endPoint: .trailing
                                 )
                             )
                             .cornerRadius(16)
-                            .shadow(color: .black.opacity(0.2), radius: 8, x: 0, y: 4)
                         }
                         
-                        // Live auth button (secondary)
+                        // NEW: DayX Wrapped Button
                         Button(action: {
-                            Task {
-                                await signInWithX()
-                            }
+                            showingDayXWrapped = true
                         }) {
-                            HStack(spacing: 12) {
-                                if isLoading {
-                                    ProgressView()
-                                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                                        .scaleEffect(0.8)
-                                } else {
-                                    Image(systemName: "checkmark.shield.fill")
-                                        .font(.title2)
-                                }
-                                
-                                Text(isLoading ? "Connecting..." : "Connect with X")
+                            HStack {
+                                Image(systemName: "brain.head.profile")
+                                    .font(.title2)
+                                Text("DayX Wrapped")
+                                    .font(.headline)
+                                    .fontWeight(.semibold)
+                            }
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 56)
+                            .background(
+                                LinearGradient(
+                                    gradient: Gradient(colors: [Color.purple, Color.pink]),
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                )
+                            )
+                            .cornerRadius(16)
+                        }
+                        
+                        // Secondary: Live OAuth
+                        Button(action: {
+                            loginWithX()
+                        }) {
+                            HStack {
+                                Image(systemName: "shield.checkered")
+                                    .font(.title2)
+                                Text("Connect with X")
                                     .font(.headline)
                                     .fontWeight(.semibold)
                             }
@@ -105,78 +137,104 @@ struct LoginView: View {
                             .cornerRadius(16)
                         }
                         .disabled(isLoading)
-                        
-                        // Feature comparison
-                        VStack(spacing: 8) {
-                            HStack {
-                                Text("Demo:")
-                                    .font(.caption)
-                                    .fontWeight(.semibold)
-                                    .foregroundColor(.white.opacity(0.9))
-                                Text("Full analytics showcase")
-                                    .font(.caption)
-                                    .foregroundColor(.white.opacity(0.7))
-                                Spacer()
-                            }
-                            
-                            HStack {
-                                Text("Live:")
-                                    .font(.caption)
-                                    .fontWeight(.semibold)
-                                    .foregroundColor(.white.opacity(0.9))
-                                Text("Real OAuth + Profile data")
-                                    .font(.caption)
-                                    .foregroundColor(.white.opacity(0.7))
-                                Spacer()
-                            }
-                        }
-                        .padding(.horizontal, 4)
                     }
                     .padding(.horizontal, 32)
                     
+                    // Feature comparison
+                    VStack(spacing: 8) {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Demo Mode")
+                                    .font(.subheadline)
+                                    .fontWeight(.semibold)
+                                    .foregroundColor(.orange)
+                                Text("Full analytics showcase")
+                                    .font(.caption)
+                                    .foregroundColor(.white.opacity(0.7))
+                            }
+                            
+                            Spacer()
+                            
+                            VStack(alignment: .trailing, spacing: 4) {
+                                Text("Live Mode")
+                                    .font(.subheadline)
+                                    .fontWeight(.semibold)
+                                    .foregroundColor(.blue)
+                                Text("Real OAuth integration")
+                                    .font(.caption)
+                                    .foregroundColor(.white.opacity(0.7))
+                            }
+                        }
+                        .padding(.horizontal, 32)
+                    }
+                    
                     Spacer()
                     
-                    // Footer
-                    VStack(spacing: 8) {
-                        Text("Built with SwiftUI + OAuth 2.0")
+                    // Loading state
+                    if isLoading {
+                        VStack(spacing: 12) {
+                            ProgressView()
+                                .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                .scaleEffect(1.2)
+                            Text("Connecting to X...")
+                                .font(.subheadline)
+                                .foregroundColor(.white.opacity(0.8))
+                        }
+                    }
+                    
+                    // Error message
+                    if let errorMessage = errorMessage {
+                        VStack(spacing: 8) {
+                            Image(systemName: "exclamationmark.triangle")
+                                .font(.title2)
+                                .foregroundColor(.yellow)
+                            Text(errorMessage)
+                                .font(.subheadline)
+                                .foregroundColor(.white)
+                                .multilineTextAlignment(.center)
+                        }
+                        .padding()
+                        .background(Color.red.opacity(0.2))
+                        .cornerRadius(12)
+                        .padding(.horizontal, 32)
+                    }
+                    
+                    // Portfolio attribution
+                    VStack(spacing: 4) {
+                        Text("Portfolio Demo by Austin Burgess")
                             .font(.caption)
-                            .foregroundColor(.white.opacity(0.7))
-                        
-                        Text("By Austin Burgess")
-                            .font(.caption)
-                            .fontWeight(.medium)
-                            .foregroundColor(.white.opacity(0.8))
+                            .foregroundColor(.white.opacity(0.6))
+                        Text("Built with SwiftUI, OAuth 2.0, and Natural Language AI")
+                            .font(.caption2)
+                            .foregroundColor(.white.opacity(0.5))
                     }
                     .padding(.bottom, 20)
                 }
             }
-            .navigationBarHidden(true)
         }
-        .fullScreenCover(isPresented: $showingDemo) {
+        .sheet(isPresented: $showingDemo) {
             DemoDashboardView()
         }
-        .alert("Authentication Error", isPresented: .constant(errorMessage != nil)) {
-            Button("OK") {
-                errorMessage = nil
-            }
-        } message: {
-            if let errorMessage = errorMessage {
-                Text(errorMessage)
-            }
+        .sheet(isPresented: $showingDayXWrapped) {
+            DayXWrappedView()
         }
     }
     
-    private func signInWithX() async {
+    private func loginWithX() {
         isLoading = true
         errorMessage = nil
         
-        do {
-            try await authManager.login()
-        } catch {
-            errorMessage = error.localizedDescription
+        Task {
+            do {
+                authManager.login()
+                // Success handled by AuthManager state change
+            } catch {
+                await MainActor.run {
+                    errorMessage = error.localizedDescription
+                    isLoading = false
+                }
+            }
         }
-        
-        isLoading = false
     }
 }
 
