@@ -105,13 +105,13 @@ class ViralPredictionEngine {
     private func determineViralCategory(for tweet: HardcodedTweet) -> ViralCategory {
         let text = tweet.text.lowercased()
         
-        if text.contains("nba") || text.contains("basketball") || text.contains("game") || text.contains("playoff") {
+        if text.contains("nba") || text.contains("basketball") || text.contains("game") || text.contains("playoff") || text.contains("mlb") || text.contains("baseball") || text.contains("ohtani") || text.contains("home run") {
             return .sports
-        } else if text.contains("😂") || text.contains("😭") || text.contains("lmao") || text.contains("funny") {
+        } else if text.contains("😂") || text.contains("😭") || text.contains("lmao") || text.contains("funny") || text.contains("💀") || text.contains("crying") || text.contains("dying") {
             return .comedy
-        } else if text.contains("breaking") || text.contains("news") || text.contains("report") {
-            return .news
-        } else if text.contains("music") || text.contains("song") || text.contains("artist") {
+        } else if text.contains("claude") || text.contains("sonnet") || text.contains("opus") || text.contains("ai") || text.contains("tech") || text.contains("business") || text.contains("finance") || text.contains("code") {
+            return .tech
+        } else if text.contains("music") || text.contains("song") || text.contains("artist") || text.contains("spotify") || text.contains("rihanna") {
             return .music
         } else {
             return .general
@@ -162,13 +162,13 @@ struct ViralHit {
 }
 
 enum ViralCategory: CaseIterable {
-    case sports, comedy, news, music, general
+    case sports, comedy, tech, music, general
     
     var emoji: String {
         switch self {
         case .sports: return "🏀"
         case .comedy: return "😂"
-        case .news: return "📰"
+        case .tech: return "💻"
         case .music: return "🎵"
         case .general: return "💬"
         }
@@ -178,7 +178,7 @@ enum ViralCategory: CaseIterable {
         switch self {
         case .sports: return "Sports"
         case .comedy: return "Comedy"
-        case .news: return "News"
+        case .tech: return "Tech"
         case .music: return "Music"
         case .general: return "General"
         }

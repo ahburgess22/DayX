@@ -15,8 +15,8 @@ struct DayXWrappedView: View {
     @State private var viralAnalysis: ViralPredictionAnalysis?
     @State private var currentPage = 0
     
-    private let tweets = HardcodedTwitterData.tweets
-    private let activity = HardcodedTwitterData.dailyActivity
+    // Random day data - selected once when view loads
+    @State private var selectedDayData: (tweets: [HardcodedTweet], activity: DayXActivity) = ([], DayXActivity(date: "", likedTweetIDs: [], retweetedTweetIDs: [], repliedToTweetIDs: [], quotedTweetIDs: [], newAccountsFollowed: [], peakActivityHour: 0, totalEngagements: 0))
     
     var body: some View {
         NavigationView {
@@ -50,33 +50,33 @@ struct DayXWrappedView: View {
                 } else {
                     TabView(selection: $currentPage) {
                         // Page 1: Your X Day
-                        DayXOverviewPage(activity: activity, sentimentAnalysis: sentimentAnalysis)
+                        DayXOverviewPage(activity: selectedDayData.activity, sentimentAnalysis: sentimentAnalysis)
                             .tag(0)
                         
                         // Page 2: Your Mood Analysis
                         if let sentimentAnalysis = sentimentAnalysis {
-                            DayXSentimentPage(analysis: sentimentAnalysis, tweets: tweets)
+                            DayXSentimentPage(analysis: sentimentAnalysis, tweets: selectedDayData.tweets)
                                 .tag(1)
                         }
                         
                         // Page 3: Hidden Gem
-                        DayXHiddenGemPage(tweets: tweets)
+                        DayXHiddenGemPage(tweets: selectedDayData.tweets)
                             .tag(2)
                         
                         // Page 4: Here's to You🥂 (Insights Part 1)
-                        DayXInsightsPart1Page(tweets: tweets)
+                        DayXInsightsPart1Page(tweets: selectedDayData.tweets)
                             .tag(3)
                         
                         // Page 5: Here's to You🥂 (Insights Part 2)
-                        DayXInsightsPart2Page(tweets: tweets)
+                        DayXInsightsPart2Page(tweets: selectedDayData.tweets)
                             .tag(4)
                         
                         // Page 6: Top Viral Tweets
-                        DayXTopTweetsPage(tweets: tweets, viralAnalysis: viralAnalysis)
+                        DayXTopTweetsPage(tweets: selectedDayData.tweets, viralAnalysis: viralAnalysis)
                             .tag(5)
                         
                         // Page 7: Your X Day Wrapped (All Tweets)
-                        DayXAllTweetsPage(tweets: tweets)
+                        DayXAllTweetsPage(tweets: selectedDayData.tweets)
                             .tag(6)
                     }
                     .tabViewStyle(PageTabViewStyle(indexDisplayMode: .always))
@@ -103,6 +103,8 @@ struct DayXWrappedView: View {
             }
         }
         .onAppear {
+            // Select random day data once when view appears
+            selectedDayData = HardcodedTwitterData.getRandomDayData()
             loadAnalytics()
         }
     }
@@ -114,12 +116,12 @@ struct DayXWrappedView: View {
             // Simulate processing time for dramatic effect
             try? await Task.sleep(nanoseconds: 2_000_000_000) // 2 seconds
             
-            // Run AI analysis
+            // Run AI analysis on selected day's tweets
             let sentimentAnalyzer = TwitterSentimentAnalyzer()
-            let sentimentResults = sentimentAnalyzer.analyzeTweets(tweets)
+            let sentimentResults = sentimentAnalyzer.analyzeTweets(selectedDayData.tweets)
             
             let viralEngine = ViralPredictionEngine()
-            let viralResults = viralEngine.analyzeViralPredictions(from: tweets)
+            let viralResults = viralEngine.analyzeViralPredictions(from: selectedDayData.tweets)
             
             await MainActor.run {
                 sentimentAnalysis = sentimentResults
@@ -150,14 +152,32 @@ struct DayXOverviewPage: View {
         return "\(hour):00"
     }
     
+    private func formatDate(_ dateString: String) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        
+        if let date = formatter.date(from: dateString) {
+            let displayFormatter = DateFormatter()
+            displayFormatter.dateFormat = "MMMM d, yyyy"
+            return displayFormatter.string(from: date)
+        }
+        return dateString
+    }
+    
     var body: some View {
         ScrollView {
             VStack(spacing: 30) {
-                Text("Your X Day")
-                    .font(.largeTitle)
-                    .fontWeight(.bold)
-                    .foregroundColor(.white)
-                    .padding(.top, 40)
+                VStack(spacing: 8) {
+                    Text("Your X Day")
+                        .font(.largeTitle)
+                        .fontWeight(.bold)
+                        .foregroundColor(.white)
+                    
+                    Text(formatDate(activity.date))
+                        .font(.subheadline)
+                        .foregroundColor(.white.opacity(0.8))
+                }
+                .padding(.top, 40)
                 
                 VStack(spacing: 20) {
                     StatsCard(title: "Tweets Liked", value: "\(activity.totalEngagements)", subtitle: "total interactions", color: .pink)
@@ -185,9 +205,18 @@ struct DayXSentimentPage: View {
     let analysis: TweetSentimentAnalysis
     let tweets: [HardcodedTweet]
     
-    // Find a tweet that reflects the dominant mood
+    // Find a tweet that reflects the dominant mood - FIXED LOGIC
     private var exampleTweet: HardcodedTweet? {
         switch analysis.dominantMood {
+        case .positive:
+            // Look for positive tweets first
+            return tweets.first { tweet in
+                let text = tweet.text.lowercased()
+                return text.contains("amazing") || text.contains("incredible") || text.contains("beautiful") ||
+                       text.contains("perfect") || text.contains("excellent") || text.contains("grateful") ||
+                       text.contains("mastery") || text.contains("🔥") || text.contains("✨") ||
+                       text.contains("❤️") || text.contains("💪") || text.contains("🌟")
+            } ?? tweets.first { $0.authorUsername == "Cristiano" } // Fallback to Cristiano's positive tweet
         case .negative:
             // Look for roasting/critical tweets - prioritize specific negative language
             return tweets.first { tweet in
@@ -197,11 +226,6 @@ struct DayXSentimentPage: View {
                 let text = tweet.text.lowercased()
                 return text.contains("😭") && text.contains("lmao")
             } ?? tweets.first { $0.authorUsername == "HaterReport_" }
-        case .positive:
-            return tweets.first { tweet in
-                let text = tweet.text.lowercased()
-                return text.contains("amazing") || text.contains("great") || text.contains("win") || text.contains("🔥")
-            }
         case .neutral:
             return tweets.first { $0.likeCount < 5000 }
         }
@@ -294,18 +318,21 @@ struct DayXHiddenGemPage: View {
     }
 }
 
-// Smart Tweet Selection Helper
+// Smart Tweet Selection Helper - UPDATED
 struct TweetSelector {
     static func selectUniqueExampleTweets(from tweets: [HardcodedTweet]) -> (sports: HardcodedTweet?, viral: HardcodedTweet?, comedy: HardcodedTweet?, nba: HardcodedTweet?) {
         var usedTweetIds: Set<String> = []
         
-        // 1. Sports engagement tweet (NBA/Basketball focused)
+        // 1. Sports engagement tweet (NBA/Basketball/Baseball focused) - UPDATED
         let sportsTweet = tweets.first { tweet in
             let text = tweet.text.lowercased()
             let author = tweet.authorUsername.lowercased()
-            let isBasketball = author.contains("nba") || text.contains("kat") || text.contains("wolves") ||
-                             text.contains("knicks") || text.contains("pacers") || text.contains("playoff")
-            return isBasketball && !usedTweetIds.contains(tweet.id)
+            let isSports = author.contains("nba") || author.contains("mlb") || author.contains("baseball") ||
+                          text.contains("kat") || text.contains("wolves") || text.contains("knicks") ||
+                          text.contains("pacers") || text.contains("playoff") || text.contains("strikeout") ||
+                          text.contains("basketball") || text.contains("🏀") || text.contains("⚾️") ||
+                          text.contains("ohtani") || text.contains("perfect") && author.contains("fuzzy")
+            return isSports && !usedTweetIds.contains(tweet.id)
         }
         if let sportsTweet = sportsTweet {
             usedTweetIds.insert(sportsTweet.id)
@@ -320,25 +347,29 @@ struct TweetSelector {
             usedTweetIds.insert(viralTweet.id)
         }
         
-        // 3. Comedy tweet (not already used)
+        // 3. Comedy tweet (not already used) - UPDATED
         let comedyTweet = tweets.first { tweet in
             let text = tweet.text.lowercased()
             let author = tweet.authorUsername.lowercased()
             let isComedy = text.contains("😂") || text.contains("😭") || author.contains("druski") ||
-                          text.contains("lmao") || text.contains("whiteBoy")
+                          text.contains("lmao") || text.contains("whiteBoy") || text.contains("hilarious") ||
+                          text.contains("amazing") && author.contains("nocontexthumans")
             return isComedy && !usedTweetIds.contains(tweet.id)
         }
         if let comedyTweet = comedyTweet {
             usedTweetIds.insert(comedyTweet.id)
         }
         
-        // 4. NBA specific tweet (different from sports tweet, not already used)
+        // 4. NBA specific tweet (different from sports tweet, not already used) - UPDATED
         let nbaTweet = tweets.first { tweet in
             let text = tweet.text.lowercased()
             let author = tweet.authorUsername.lowercased()
             let isNBA = (text.contains("mvp") && text.contains("sga")) ||
                        text.contains("thunder") || text.contains("minnesota") ||
-                       (author.contains("nba") && text.contains("game"))
+                       (author.contains("nba") && (text.contains("game") || text.contains("and 1"))) ||
+                       text.contains("playoff") ||
+                       (text.contains("basketball") || text.contains("🏀")) ||
+                       (author.contains("nba") || author.contains("hoops"))
             return isNBA && !usedTweetIds.contains(tweet.id)
         }
         
@@ -423,12 +454,15 @@ struct DayXInsightsPart2Page: View {
                         }
                     }
                     
-                    // NBA playoff insight
+                    // NBA playoff insight - FIXED TO SHOW ANY SPORTS CONTENT
                     VStack(alignment: .leading, spacing: 12) {
                         InsightRow(icon: "🏀", text: "You engage 3x more with NBA playoff content than regular season")
                         
                         if let nbaTweet = selectedTweets.nba {
                             TweetDisplayCard(tweet: nbaTweet)
+                        } else if let sportsTweet = selectedTweets.sports {
+                            // Fallback to any sports tweet if no NBA specific tweet found
+                            TweetDisplayCard(tweet: sportsTweet)
                         }
                     }
                 }
@@ -481,7 +515,7 @@ struct DayXAllTweetsPage: View {
                     .foregroundColor(.white)
                     .padding(.top, 40)
                 
-                Text("All 72 tweets you liked today")
+                Text("All \(tweets.count) tweets you liked today")
                     .font(.subheadline)
                     .foregroundColor(.white.opacity(0.8))
                 
