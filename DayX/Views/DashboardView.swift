@@ -2,166 +2,268 @@ import SwiftUI
 
 struct DashboardView: View {
     @EnvironmentObject var authManager: AuthManager
-    @StateObject private var xService = XService.shared
-    @State private var dailyInsights: DailyInsights?
+    @StateObject private var xService = XService()
     @State private var isLoading = true
+    @State private var insights: DailyInsights?
+    @State private var error: String?
     
     var body: some View {
         NavigationView {
             ScrollView {
                 VStack(spacing: 20) {
+                    // Live API status header
+                    VStack(spacing: 12) {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Live X Data")
+                                    .font(.title2)
+                                    .fontWeight(.bold)
+                                Text("Real OAuth + Profile Integration")
+                                    .font(.subheadline)
+                                    .foregroundColor(.secondary)
+                            }
+                            
+                            Spacer()
+                            
+                            Image(systemName: "checkmark.circle.fill")
+                                .font(.title)
+                                .foregroundColor(.green)
+                        }
+                        
+                        HStack {
+                            Image(systemName: "shield.checkered")
+                                .foregroundColor(.blue)
+                            Text("Connected with OAuth 2.0 + PKCE security")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            Spacer()
+                        }
+                    }
+                    .padding(.horizontal)
+                    
                     if isLoading {
-                        ProgressView("Loading your daily insights...")
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    } else if let insights = dailyInsights {
-                        DailyInsightsView(insights: insights)
-                    } else {
-                        EmptyStateView()
+                        VStack(spacing: 16) {
+                            ProgressView()
+                                .scaleEffect(1.2)
+                            Text("Fetching your X data...")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                        }
+                        .frame(maxWidth: .infinity, minHeight: 200)
+                    } else if let error = error {
+                        VStack(spacing: 16) {
+                            Image(systemName: "exclamationmark.triangle")
+                                .font(.system(size: 32))
+                                .foregroundColor(.orange)
+                            Text("Oops! Something went wrong")
+                                .font(.headline)
+                            Text(error)
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                                .multilineTextAlignment(.center)
+                            
+                            Button("Try Again") {
+                                loadDashboardData()
+                            }
+                            .buttonStyle(.borderedProminent)
+                        }
+                        .padding()
+                    } else if let insights = insights {
+                        // User Profile Section
+                        if let user = authManager.user {
+                            UserProfileCard(user: user)
+                                .padding(.horizontal)
+                        }
+                        
+                        // Daily Insights Cards
+                        LazyVGrid(columns: [
+                            GridItem(.flexible()),
+                            GridItem(.flexible())
+                        ], spacing: 16) {
+                            InsightCard(
+                                title: "Liked Today",
+                                value: "\(insights.tweetsLiked)",
+                                subtitle: "tweets",
+                                icon: "heart.fill",
+                                color: .pink
+                            )
+                            
+                            InsightCard(
+                                title: "Time Spent",
+                                value: "\(insights.activeHours)h",
+                                subtitle: "active",
+                                icon: "clock.fill",
+                                color: .blue
+                            )
+                            
+                            InsightCard(
+                                title: "Engaged With",
+                                value: "\(insights.uniqueAccounts)",
+                                subtitle: "accounts",
+                                icon: "person.2.fill",
+                                color: .green
+                            )
+                            
+                            InsightCard(
+                                title: "Most Active",
+                                value: insights.peakActivityTime,
+                                subtitle: "peak time",
+                                icon: "chart.line.uptrend.xyaxis",
+                                color: .orange
+                            )
+                        }
+                        .padding(.horizontal)
+                        
+                        // Top Engagement Section
+                        if let topAccount = insights.topEngagedAccount {
+                            VStack(alignment: .leading, spacing: 12) {
+                                HStack {
+                                    Text("Top Engagement")
+                                        .font(.headline)
+                                    Spacer()
+                                }
+                                
+                                HStack(spacing: 12) {
+                                    Image(systemName: "person.circle.fill")
+                                        .font(.system(size: 32))
+                                        .foregroundColor(.blue)
+                                    
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text("@\(topAccount.username)")
+                                            .font(.subheadline)
+                                            .fontWeight(.semibold)
+                                        Text("\(topAccount.interactionCount) interactions")
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                    }
+                                    
+                                    Spacer()
+                                }
+                                .padding()
+                                .background(
+                                    LinearGradient(
+                                        gradient: Gradient(colors: [
+                                            Color.blue.opacity(0.1),
+                                            Color.purple.opacity(0.1)
+                                        ]),
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
+                                )
+                                .cornerRadius(12)
+                            }
+                            .padding(.horizontal)
+                        }
+                        
+                        // Live API Information
+                        LiveAPIInfoCard()
+                            .padding(.horizontal)
                     }
                 }
-                .padding()
+                .padding(.vertical)
             }
-            .navigationTitle("Today's Insights")
+            .navigationTitle("Daily X Wrapped")
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Logout") {
+                    Button("Sign Out") {
                         authManager.logout()
                     }
+                    .foregroundColor(.red)
                 }
             }
         }
         .onAppear {
-            loadDailyInsights()
+            loadDashboardData()
         }
     }
     
-    private func loadDailyInsights() {
-        guard let token = authManager.accessToken else { return }
+    private func loadDashboardData() {
+        isLoading = true
+        error = nil
         
         Task {
             do {
-                let insights = try await xService.fetchDailyInsights()
+                let fetchedInsights = try await xService.fetchDailyInsights(demoMode: false)
+                
                 await MainActor.run {
-                    self.isLoading = false
-                    self.dailyInsights = insights
+                    insights = fetchedInsights
+                    isLoading = false
                 }
             } catch {
                 await MainActor.run {
-                    self.isLoading = false
-                    print("Failed to load insights: \(error)")
+                    self.error = error.localizedDescription
+                    isLoading = false
                 }
             }
         }
     }
 }
 
-struct DailyInsightsView: View {
-    let insights: DailyInsights
+// MARK: - Supporting Views
+
+struct UserProfileCard: View {
+    let user: XUser
     
     var body: some View {
-        VStack(spacing: 20) {
-            // Header Card
-            InsightCard(
-                title: "Today's Activity",
-                value: "\(insights.tweetsLiked)",
-                subtitle: "tweets liked",
-                icon: "heart.fill",
-                color: .red
-            )
+        HStack(spacing: 12) {
+            AsyncImage(url: URL(string: user.profileImageURL ?? "")) { image in
+                image
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+            } placeholder: {
+                Image(systemName: "person.circle.fill")
+                    .foregroundColor(.gray)
+            }
+            .frame(width: 50, height: 50)
+            .clipShape(Circle())
             
-            // Stats Grid
-            LazyVGrid(columns: [
-                GridItem(.flexible()),
-                GridItem(.flexible())
-            ], spacing: 16) {
-                InsightCard(
-                    title: "Active Hours",
-                    value: "\(insights.activeHours)",
-                    subtitle: "hours",
-                    icon: "clock.fill",
-                    color: .blue
-                )
-                
-                InsightCard(
-                    title: "Unique Accounts",
-                    value: "\(insights.uniqueAccounts)",
-                    subtitle: "engaged with",
-                    icon: "person.2.fill",
-                    color: .green
-                )
-                
-                InsightCard(
-                    title: "Peak Hour",
-                    value: insights.peakHour,
-                    subtitle: "most active",
-                    icon: "chart.bar.fill",
-                    color: .orange
-                )
-                
-                InsightCard(
-                    title: "Saved Tweets",
-                    value: "\(insights.savedTweets)",
-                    subtitle: "bookmarked",
-                    icon: "bookmark.fill",
-                    color: .purple
-                )
+            VStack(alignment: .leading, spacing: 4) {
+                Text(user.displayName)
+                    .font(.headline)
+                    .fontWeight(.semibold)
+                Text("@\(user.username)")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
             }
             
-            // Top Account Card
-            if let topAccount = insights.topAccount {
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("Most Engaged Account")
-                        .font(.headline)
-                    
-                    HStack {
-                        AsyncImage(url: URL(string: topAccount.profileImageUrl)) { image in
-                            image
-                                .resizable()
-                                .aspectRatio(contentMode: .fill)
-                        } placeholder: {
-                            Circle()
-                                .fill(Color.gray.opacity(0.3))
-                        }
-                        .frame(width: 40, height: 40)
-                        .clipShape(Circle())
-                        
-                        VStack(alignment: .leading) {
-                            Text("\(topAccount.username)")
-                                .font(.subheadline)
-                                .fontWeight(.medium)
-                            
-                            Text("\(topAccount.engagementCount) interactions")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
-                        
-                        Spacer()
-                    }
-                }
-                .padding()
-                .background(Color.gray.opacity(0.1))
-                .cornerRadius(12)
-            }
+            Spacer()
+            
+            Image(systemName: "checkmark.seal.fill")
+                .foregroundColor(.blue)
+                .font(.title2)
         }
+        .padding()
+        .background(
+            LinearGradient(
+                gradient: Gradient(colors: [Color.blue.opacity(0.1), Color.purple.opacity(0.1)]),
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        )
+        .cornerRadius(16)
     }
 }
 
-struct EmptyStateView: View {
+struct LiveAPIInfoCard: View {
     var body: some View {
-        VStack(spacing: 20) {
-            Image(systemName: "chart.line.uptrend.xyaxis.circle")
-                .font(.system(size: 60))
-                .foregroundColor(.gray)
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Image(systemName: "info.circle.fill")
+                    .foregroundColor(.blue)
+                Text("Live API Status")
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+                Spacer()
+            }
             
-            Text("No insights yet")
-                .font(.title2)
-                .fontWeight(.medium)
-            
-            Text("Start liking tweets to see your daily insights!")
+            Text("Successfully connected to X API with OAuth 2.0 + PKCE security. Limited to profile data due to API tier restrictions ($100/month required for full analytics). View the demo version to see complete analytics capabilities.")
+                .font(.caption)
                 .foregroundColor(.secondary)
-                .multilineTextAlignment(.center)
+                .multilineTextAlignment(.leading)
         }
         .padding()
+        .background(Color.blue.opacity(0.1))
+        .cornerRadius(12)
     }
 }
