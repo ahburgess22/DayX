@@ -462,7 +462,6 @@ struct DayXInsightsPart2Page: View {
                     VStack(alignment: .leading, spacing: 12) {
                         InsightRow(icon: "🏀", text: "You engage 3x more with sports content than anything else")
                         
-<<<<<<< HEAD
                         // Find any sports-related tweet
                         if let sportsTweet = tweets.first(where: { tweet in
                             let text = tweet.text.lowercased()
@@ -471,12 +470,6 @@ struct DayXInsightsPart2Page: View {
                                    author.contains("basketball") || author.contains("baseball") ||
                                    text.contains("game") || text.contains("season") || text.contains("playoff")
                         }) {
-=======
-                        if let nbaTweet = selectedTweets.nba {
-                            TweetDisplayCard(tweet: nbaTweet)
-                        } else if let sportsTweet = selectedTweets.sports {
-                            // Fallback to any sports tweet if no NBA specific tweet found
->>>>>>> c2e97d9f8e83151a00f857e79660553f3a1d97bb
                             TweetDisplayCard(tweet: sportsTweet)
                         }
                     }
