@@ -105,6 +105,10 @@ struct DayXWrappedView: View {
         .onAppear {
             loadAnalytics()
         }
+        .onDisappear {
+            // Reset day selection so next viewing gets new day
+            HardcodedTwitterData.resetDaySelection()
+        }
     }
     
     private func loadAnalytics() {
@@ -425,10 +429,17 @@ struct DayXInsightsPart2Page: View {
                     
                     // NBA playoff insight
                     VStack(alignment: .leading, spacing: 12) {
-                        InsightRow(icon: "🏀", text: "You engage 3x more with NBA playoff content than regular season")
+                        InsightRow(icon: "🏀", text: "You engage 3x more with sports content than anything else")
                         
-                        if let nbaTweet = selectedTweets.nba {
-                            TweetDisplayCard(tweet: nbaTweet)
+                        // Find any sports-related tweet
+                        if let sportsTweet = tweets.first(where: { tweet in
+                            let text = tweet.text.lowercased()
+                            let author = tweet.authorUsername.lowercased()
+                            return author.contains("mlb") || author.contains("nba") || author.contains("legion") ||
+                                   author.contains("basketball") || author.contains("baseball") ||
+                                   text.contains("game") || text.contains("season") || text.contains("playoff")
+                        }) {
+                            TweetDisplayCard(tweet: sportsTweet)
                         }
                     }
                 }
@@ -481,7 +492,7 @@ struct DayXAllTweetsPage: View {
                     .foregroundColor(.white)
                     .padding(.top, 40)
                 
-                Text("All 72 tweets you liked today")
+                Text("All \(tweets.count) tweets you liked today")
                     .font(.subheadline)
                     .foregroundColor(.white.opacity(0.8))
                 

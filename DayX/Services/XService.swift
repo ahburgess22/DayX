@@ -40,7 +40,7 @@ class XService: ObservableObject {
             throw XAPIError.noAccessToken
         }
         
-        let url = URL(string: "https://api.twitter.com/2/users/me")!
+        let url = URL(string: "https://api.twitter.com/2/users/me?user.fields=profile_image_url,public_metrics,verified")!
         var request = URLRequest(url: url)
         request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
         

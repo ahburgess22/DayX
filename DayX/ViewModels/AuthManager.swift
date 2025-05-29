@@ -7,7 +7,7 @@ import CryptoKit
 class AuthManager: ObservableObject {
     @Published var isLoggedIn = false
     @Published var isLoading = false
-    @Published var user: XUser?
+    @Published var user: XAPIUser?
     @Published var accessToken: String?
     @Published var errorMessage: String?
     
@@ -253,11 +253,11 @@ class AuthManager: ObservableObject {
         
         do {
             let userResponse = try JSONDecoder().decode(UserResponse.self, from: data)
-            self.user = XUser(
+            self.user = XAPIUser(
                 id: userResponse.data.id,
                 username: userResponse.data.username,
-                displayName: userResponse.data.name,
-                profileImageURL: userResponse.data.profile_image_url
+                name: userResponse.data.name,
+                profile_image_url: userResponse.data.profile_image_url
             )
             
             isLoggedIn = true

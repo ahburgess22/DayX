@@ -203,23 +203,55 @@ struct DashboardView: View {
 // MARK: - Supporting Views
 
 struct UserProfileCard: View {
-    let user: XUser
+    let user: XAPIUser
     
     var body: some View {
+        let _ = print("DEBUG: Full user object:")
+            let _ = print("  - ID: \(user.id)")
+            let _ = print("  - Username: \(user.username)")
+            let _ = print("  - Display Name: \(user.name)")
+            let _ = print("  - Profile Image URL: '\(user.profile_image_url ?? "nil")'")
+            let _ = print("  - Profile Image URL isEmpty: \(user.profile_image_url?.isEmpty ?? true)")
+        
         HStack(spacing: 12) {
-            AsyncImage(url: URL(string: user.profileImageURL ?? "")) { image in
-                image
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
-            } placeholder: {
+            if let profileImageURL = user.profile_image_url,
+               !profileImageURL.isEmpty {
+                let _ = print("DEBUG: Trying to load image from: \(profileImageURL)")
+                
+                AsyncImage(url: URL(string: profileImageURL)) { phase in
+                    switch phase {
+                    case .success(let image):
+                        let _ = print("DEBUG: ✅ Image loaded successfully")
+                        image
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                    case .failure(let error):
+                        let _ = print("DEBUG: ❌ Image failed to load: \(error)")
+                        Image(systemName: "person.circle.fill")
+                            .font(.system(size: 50))
+                            .foregroundColor(.red) // Red so we know it failed
+                    case .empty:
+                        let _ = print("DEBUG: 🔄 Image loading...")
+                        ProgressView()
+                            .frame(width: 50, height: 50)
+                    @unknown default:
+                        let _ = print("DEBUG: ❓ Unknown state")
+                        Image(systemName: "person.circle.fill")
+                            .font(.system(size: 50))
+                            .foregroundColor(.orange)
+                    }
+                }
+                .frame(width: 50, height: 50)
+                .clipShape(Circle())
+            } else {
+                let _ = print("DEBUG: ❌ No profile image URL available")
                 Image(systemName: "person.circle.fill")
+                    .font(.system(size: 50))
                     .foregroundColor(.gray)
             }
-            .frame(width: 50, height: 50)
-            .clipShape(Circle())
             
             VStack(alignment: .leading, spacing: 4) {
-                Text(user.displayName)
+                Text(user.name)
                     .font(.headline)
                     .fontWeight(.semibold)
                 Text("@\(user.username)")
