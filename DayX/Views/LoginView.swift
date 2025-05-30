@@ -96,7 +96,7 @@ struct LoginView: View {
                             HStack {
                                 Image(systemName: "brain.head.profile")
                                     .font(.title2)
-                                Text("DayX Wrapped")
+                                Text("Austin's X Wrapped")
                                     .font(.headline)
                                     .fontWeight(.semibold)
                             }
@@ -128,7 +128,7 @@ struct LoginView: View {
                             .frame(maxWidth: .infinity)
                             .frame(height: 56)
                             .background(
-                                Color.white.opacity(0.2)
+                                Color.blue.opacity(0.9)
                             )
                             .overlay(
                                 RoundedRectangle(cornerRadius: 16)
